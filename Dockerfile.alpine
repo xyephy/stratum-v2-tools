@@ -1,0 +1,71 @@
+# Alpine-based Dockerfile for smaller image size
+FROM rust:1.75-alpine as builder
+
+# Install build dependencies
+RUN apk add --no-cache \
+    musl-dev \
+    pkgconfig \
+    openssl-dev \
+    sqlite-dev
+
+# Create app user for build
+RUN adduser -D -s /bin/sh app
+
+# Set working directory
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Change ownership to app user
+RUN chown -R app:app /app
+USER app
+
+# Build the applications with musl target
+RUN cargo build --release --target x86_64-unknown-linux-musl --bin sv2d
+RUN cargo build --release --target x86_64-unknown-linux-musl --bin sv2-cli
+RUN cargo build --release --target x86_64-unknown-linux-musl --bin sv2-web
+
+# Runtime stage - minimal Alpine
+FROM alpine:3.18
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    ca-certificates \
+    sqlite \
+    && adduser -D -s /bin/sh -u 1000 sv2d
+
+# Set working directory
+WORKDIR /app
+
+# Copy binaries from builder stage
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/sv2d /usr/local/bin/
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/sv2-cli /usr/local/bin/
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/sv2-web /usr/local/bin/
+
+# Copy configuration examples
+COPY --from=builder /app/sv2-core/examples/*.toml /app/config/
+
+# Create data and log directories with proper ownership
+RUN mkdir -p /app/data /app/logs && \
+    chown -R sv2d:sv2d /app
+
+# Switch to non-root user
+USER sv2d
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD sv2-cli status --quiet || exit 1
+
+# Default command
+CMD ["sv2d", "--config", "/app/config/sv2d.toml"]
+
+# Expose default ports
+EXPOSE 4254 8080
+
+# Labels for metadata
+LABEL org.opencontainers.image.title="SV2D Stratum V2 Toolkit (Alpine)"
+LABEL org.opencontainers.image.description="Stratum V2 mining daemon and tools - Alpine Linux"
+LABEL org.opencontainers.image.vendor="Stratum V2 Project"
+LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"
+LABEL org.opencontainers.image.source="https://github.com/stratum-mining/stratum"

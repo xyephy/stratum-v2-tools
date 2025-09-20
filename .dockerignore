@@ -1,0 +1,54 @@
+# Docker ignore file for sv2d toolkit
+
+# Build artifacts
+target/
+dist/
+*.log
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Test files
+tests/
+*_test.rs
+
+# Temporary files
+tmp/
+temp/
+
+# Node modules (if any)
+node_modules/
+
+# Database files
+*.db
+*.sqlite
+
+# Configuration files (use examples instead)
+*.toml
+!sv2-core/examples/*.toml
+
+# Scripts (not needed in container)
+scripts/
+
+# Kubernetes manifests
+k8s/
+kubernetes/
+
+# Docker files
+Dockerfile*
+docker-compose*

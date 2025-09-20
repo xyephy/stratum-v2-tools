@@ -1,0 +1,77 @@
+[workspace]
+members = [
+    "sv2-core",
+    "sv2d",
+    "sv2-cli", 
+    "sv2-web",
+    "sv2-test"
+]
+resolver = "2"
+
+[workspace.dependencies]
+# SRI (Stratum Reference Implementation) dependencies
+codec_sv2 = "2.1.0"
+common_messages_sv2 = "5.0.0"
+job_declaration_sv2 = "4.0.0"
+mining_sv2 = "4.0.0"
+template_distribution_sv2 = "3.1.0"
+sv1_api = "2.0.0"
+roles_logic_sv2 = "3.0.0"
+
+# Core dependencies
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+clap = { version = "4.0", features = ["derive"] }
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "postgres", "chrono", "uuid", "macros", "migrate"] }
+
+# Network and async
+hyper = { version = "0.14", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.4", features = ["cors", "fs"] }
+axum = "0.6"
+tokio-tungstenite = "0.20"
+reqwest = { version = "0.11", features = ["json"] }
+url = "2.4"
+
+# Configuration
+toml = "0.8"
+config = "0.13"
+
+# Metrics and monitoring
+prometheus = "0.13"
+metrics = "0.21"
+metrics-prometheus = "0.6"
+
+# Crypto and utilities
+bitcoin = "0.30"
+hex = "0.4"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+async-trait = "0.1"
+sha2 = "0.10"
+rand = "0.8"
+base64 = "0.21"
+getrandom = "0.2"
+regex = "1.10"
+
+# Testing
+tempfile = "3.8"
+
+# CLI dependencies
+env_logger = "0.10"
+log = "0.4"
+tabled = "0.15"
+serde_yaml = "0.9"
+colored = "2.0"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"

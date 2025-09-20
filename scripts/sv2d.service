@@ -1,0 +1,48 @@
+[Unit]
+Description=SV2D Stratum V2 Daemon
+Documentation=https://github.com/stratum-mining/stratum
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=@SERVICE_USER@
+Group=@SERVICE_USER@
+ExecStart=@INSTALL_DIR@/bin/sv2d --config @CONFIG_DIR@/sv2d.toml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=@DATA_DIR@ @LOG_DIR@
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictNamespaces=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Working directory
+WorkingDirectory=@DATA_DIR@
+
+# Environment
+Environment=RUST_LOG=info
+Environment=SV2D_CONFIG_DIR=@CONFIG_DIR@
+Environment=SV2D_DATA_DIR=@DATA_DIR@
+Environment=SV2D_LOG_DIR=@LOG_DIR@
+
+[Install]
+WantedBy=multi-user.target

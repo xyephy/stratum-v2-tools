@@ -1,0 +1,31 @@
+[package]
+name = "sv2-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "sv2-cli"
+path = "src/main.rs"
+
+[dependencies]
+sv2-core = { path = "../sv2-core" }
+
+# Workspace dependencies
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+hyper = { workspace = true }
+reqwest = { workspace = true }
+url = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+
+# Additional dependencies
+env_logger = "0.10"
+log = "0.4"
+tabled = "0.15"
+serde_yaml = "0.9"
+colored = "2.0"
+toml = { workspace = true }

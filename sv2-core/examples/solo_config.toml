@@ -1,0 +1,66 @@
+# Example configuration for solo mining mode
+[mode]
+type = "Solo"
+
+[mode.config]
+coinbase_address = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
+block_template_refresh_interval = 30
+enable_custom_templates = false
+max_template_age = 300
+
+[network]
+bind_address = "127.0.0.1:3333"
+max_connections = 100
+connection_timeout = 30
+keepalive_interval = 60
+
+[bitcoin]
+rpc_url = "http://127.0.0.1:8332"
+rpc_user = "bitcoin"
+rpc_password = "password"
+network = "Regtest"
+block_template_timeout = 30
+
+[database]
+url = "sqlite://sv2d.db"
+max_connections = 10
+connection_timeout = 30
+enable_migrations = true
+
+[monitoring]
+enable_metrics = true
+metrics_bind_address = "127.0.0.1:9090"
+enable_health_checks = true
+health_check_interval = 30
+
+[monitoring.metrics]
+enabled = true
+collection_interval = 10
+prometheus_port = 9090
+system_monitoring = true
+
+[monitoring.metrics.labels]
+
+[monitoring.health]
+enabled = true
+check_interval = 30
+check_timeout = 10
+
+[monitoring.health.alert_thresholds]
+cpu_usage = 80.0
+memory_usage = 85.0
+connection_count = 900
+rejection_rate = 10.0
+response_time = 5000
+database_connections = 8
+
+[logging]
+level = "info"
+format = "Pretty"
+output = "Stdout"
+enable_correlation_ids = true
+
+[security]
+enable_authentication = false
+rate_limit_per_minute = 60
+enable_tls = false

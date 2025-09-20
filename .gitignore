@@ -1,0 +1,36 @@
+# Project specific hidden folders
+.kiro/
+.vscode/
+
+# Common Rust ignores
+/target/
+**/*.rs.bk
+*.pdb
+
+# IDE specific files
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.test
+
+# Build outputs
+dist/
+build/

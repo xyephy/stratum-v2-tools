@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sv2d Dashboard</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <link rel="stylesheet" href="/static/css/charts.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+</head>
+<body>
+    <div class="dashboard">
+        <header class="header">
+            <h1>sv2d Dashboard</h1>
+            <div class="connection-status">
+                <span id="connection-indicator" class="status-indicator disconnected"></span>
+                <span id="connection-text">Connecting...</span>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- Status Overview -->
+            <section class="status-section">
+                <h2>System Status</h2>
+                <div class="status-grid">
+                    <div class="status-card">
+                        <h3>Uptime</h3>
+                        <div class="status-value" id="uptime">-</div>
+                    </div>
+                    <div class="status-card">
+                        <h3>Active Connections</h3>
+                        <div class="status-value" id="connections">-</div>
+                    </div>
+                    <div class="status-card">
+                        <h3>Current Difficulty</h3>
+                        <div class="status-value" id="difficulty">-</div>
+                    </div>
+                    <div class="status-card">
+                        <h3>Blocks Found</h3>
+                        <div class="status-value" id="blocks-found">-</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Mining Metrics -->
+            <section class="metrics-section">
+                <h2>Mining Metrics</h2>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <h3>Hashrate</h3>
+                        <div class="metric-value" id="hashrate">- TH/s</div>
+                        <canvas id="hashrate-chart" width="300" height="150"></canvas>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Share Acceptance</h3>
+                        <div class="metric-value" id="acceptance-rate">-%</div>
+                        <canvas id="acceptance-chart" width="300" height="150"></canvas>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Total Shares</h3>
+                        <div class="metric-value" id="total-shares">-</div>
+                        <div class="metric-subvalue">
+                            Valid: <span id="valid-shares">-</span> | 
+                            Invalid: <span id="invalid-shares">-</span>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Efficiency</h3>
+                        <div class="metric-value" id="efficiency">-%</div>
+                        <div class="metric-subvalue">Shares per minute: <span id="shares-per-minute">-</span></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Connection Management -->
+            <section class="connections-section">
+                <h2>Active Connections</h2>
+                <div class="connections-container">
+                    <table class="connections-table" id="connections-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Address</th>
+                                <th>Protocol</th>
+                                <th>State</th>
+                                <th>Connected</th>
+                                <th>Last Activity</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="connections-tbody">
+                            <tr>
+                                <td colspan="7" class="no-data">No active connections</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Recent Activity -->
+            <section class="activity-section">
+                <h2>Recent Activity</h2>
+                <div class="activity-container">
+                    <div class="activity-tabs">
+                        <button class="tab-button active" data-tab="shares">Recent Shares</button>
+                        <button class="tab-button" data-tab="alerts">Alerts</button>
+                        <button class="tab-button" data-tab="logs">System Logs</button>
+                    </div>
+                    
+                    <div class="tab-content active" id="shares-tab">
+                        <table class="activity-table" id="shares-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Connection</th>
+                                    <th>Difficulty</th>
+                                    <th>Valid</th>
+                                    <th>Block</th>
+                                </tr>
+                            </thead>
+                            <tbody id="shares-tbody">
+                                <tr>
+                                    <td colspan="5" class="no-data">No recent shares</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="tab-content" id="alerts-tab">
+                        <div class="alerts-container" id="alerts-container">
+                            <div class="no-data">No alerts</div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="logs-tab">
+                        <div class="logs-container" id="logs-container">
+                            <div class="no-data">No logs available</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Configuration Modal -->
+        <div id="config-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Configuration</h3>
+                    <button class="close-button" id="close-config">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <textarea id="config-editor" placeholder="Configuration JSON..."></textarea>
+                    <div class="config-actions">
+                        <button id="validate-config" class="btn btn-secondary">Validate</button>
+                        <button id="save-config" class="btn btn-primary">Save</button>
+                    </div>
+                    <div id="config-errors" class="error-messages"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Action Button -->
+        <button id="config-fab" class="fab" title="Configuration">
+            ⚙️
+        </button>
+    </div>
+
+    <script src="/static/js/websocket.js"></script>
+    <script src="/static/js/charts.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

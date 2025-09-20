@@ -1,0 +1,80 @@
+# Example configuration for proxy mode
+[mode]
+type = "Proxy"
+
+[mode.config]
+failover_enabled = true
+load_balancing = "WeightedRoundRobin"
+connection_retry_interval = 30
+max_retry_attempts = 5
+
+[[mode.config.upstream_pools]]
+url = "stratum+tcp://pool1.example.com:4444"
+username = "worker1"
+password = "password1"
+priority = 1
+weight = 3
+
+[[mode.config.upstream_pools]]
+url = "stratum+ssl://pool2.example.com:443"
+username = "worker2"
+password = "password2"
+priority = 2
+weight = 1
+
+[network]
+bind_address = "0.0.0.0:3333"
+max_connections = 500
+connection_timeout = 30
+keepalive_interval = 60
+
+[bitcoin]
+rpc_url = "http://127.0.0.1:8332"
+rpc_user = "bitcoin"
+rpc_password = "password"
+network = "Mainnet"
+block_template_timeout = 30
+
+[database]
+url = "sqlite://sv2d_proxy.db"
+max_connections = 10
+connection_timeout = 30
+enable_migrations = true
+
+[monitoring]
+enable_metrics = true
+metrics_bind_address = "127.0.0.1:9090"
+enable_health_checks = true
+health_check_interval = 30
+
+[monitoring.metrics]
+enabled = true
+collection_interval = 10
+prometheus_port = 9090
+system_monitoring = true
+
+[monitoring.metrics.labels]
+
+[monitoring.health]
+enabled = true
+check_interval = 30
+check_timeout = 10
+
+[monitoring.health.alert_thresholds]
+cpu_usage = 80.0
+memory_usage = 85.0
+connection_count = 900
+rejection_rate = 10.0
+response_time = 5000
+database_connections = 8
+
+[logging]
+level = "info"
+format = "Json"
+output = "Stdout"
+enable_correlation_ids = true
+
+[security]
+enable_authentication = false
+rate_limit_per_minute = 60
+enable_tls = false

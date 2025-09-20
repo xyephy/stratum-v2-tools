@@ -1,0 +1,49 @@
+[package]
+name = "sv2-core"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+test-utils = []
+
+[dependencies]
+# Workspace dependencies
+codec_sv2 = { workspace = true }
+common_messages_sv2 = { workspace = true }
+job_declaration_sv2 = { workspace = true }
+mining_sv2 = { workspace = true }
+template_distribution_sv2 = { workspace = true }
+sv1_api = { workspace = true }
+roles_logic_sv2 = { workspace = true }
+
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+sqlx = { workspace = true, features = ["macros", "migrate"] }
+bitcoin = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+toml = { workspace = true }
+config = { workspace = true }
+hex = { workspace = true }
+async-trait = "0.1"
+reqwest = { version = "0.11", features = ["json"] }
+sha2 = { workspace = true }
+rand = { workspace = true }
+base64 = { workspace = true }
+getrandom = { workspace = true }
+regex = { workspace = true }
+prometheus = { workspace = true }
+metrics = { workspace = true }
+metrics-prometheus = { workspace = true }
+futures = "0.3"
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }

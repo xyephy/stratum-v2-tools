@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.sv2d.daemon</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>@INSTALL_DIR@/bin/sv2d</string>
+        <string>--config</string>
+        <string>@CONFIG_DIR@/sv2d.toml</string>
+    </array>
+    
+    <key>UserName</key>
+    <string>@SERVICE_USER@</string>
+    
+    <key>WorkingDirectory</key>
+    <string>@DATA_DIR@</string>
+    
+    <key>StandardOutPath</key>
+    <string>@LOG_DIR@/sv2d.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>@LOG_DIR@/sv2d.error.log</string>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>RUST_LOG</key>
+        <string>info</string>
+        <key>SV2D_CONFIG_DIR</key>
+        <string>@CONFIG_DIR@</string>
+        <key>SV2D_DATA_DIR</key>
+        <string>@DATA_DIR@</string>
+        <key>SV2D_LOG_DIR</key>
+        <string>@LOG_DIR@</string>
+    </dict>
+    
+    <key>RunAtLoad</key>
+    <false/>
+    
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+        <key>Crashed</key>
+        <true/>
+    </dict>
+    
+    <key>ProcessType</key>
+    <string>Background</string>
+    
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
+    
+    <key>ExitTimeOut</key>
+    <integer>30</integer>
+    
+    <key>HardResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>65536</integer>
+        <key>NumberOfProcesses</key>
+        <integer>4096</integer>
+    </dict>
+    
+    <key>SoftResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>32768</integer>
+        <key>NumberOfProcesses</key>
+        <integer>2048</integer>
+    </dict>
+</dict>
+</plist>
