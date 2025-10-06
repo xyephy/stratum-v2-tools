@@ -1,0 +1,29 @@
+# SRI Translator Configuration for Bitaxe Proxy Demo
+# Downstream (SV1) miners connect here
+downstream_address = "0.0.0.0"
+downstream_port = 3333
+
+# Version support
+max_supported_version = 2
+min_supported_version = 2
+
+# Extranonce2 size for downstream connections (for Bitaxe)
+downstream_extranonce2_size = 4
+
+# User identity for pool connection
+user_identity = "bitaxe_demo"
+
+# Aggregate channels for demo
+aggregate_channels = true
+
+# Difficulty params for Bitaxe (typically ~500 GH/s)
+[downstream_difficulty_config]
+min_individual_miner_hashrate = 500_000_000_000.0
+shares_per_minute = 6.0
+enable_vardiff = true
+
+# Upstream pool connection
+[[upstreams]]
+address = "127.0.0.1"
+port = 34254
+authority_pubkey = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
