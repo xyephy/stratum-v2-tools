@@ -34,3 +34,19 @@ Thumbs.db
 # Build outputs
 dist/
 build/
+
+# Binary downloads and extracted archives
+*.tar.gz
+*.zip
+sv2-tp-*/
+bitcoin-*/
+
+# External dependencies (should be cloned/downloaded separately)
+stratum-reference/
+stratum/
+
+# Database files
+*.db
+*.sqlite
+*.db-shm
+*.db-wal
