@@ -149,14 +149,14 @@ async fn start_bitcoin_core(network: Network) -> Result<BitcoinConnection> {
     std::fs::create_dir_all(&datadir)
         .context("Failed to create Bitcoin datadir")?;
     
-    // Write bitcoin.conf
+    // Write bitcoin.conf (network is specified via -chain= flag, not in conf)
     let bitcoin_conf = match network {
         Network::Regtest => format!(
-            "regtest=1\nrpcuser=test\nrpcpassword=test\nzmqpubhashblock=tcp://127.0.0.1:28332\nzmqpubrawtx=tcp://127.0.0.1:28333\nfallbackfee=0.0002\n\n[regtest]\nrpcport={}\n",
+            "rpcuser=test\nrpcpassword=test\nzmqpubhashblock=tcp://127.0.0.1:28332\nzmqpubrawtx=tcp://127.0.0.1:28333\nfallbackfee=0.0002\n\n[regtest]\nrpcport={}\n",
             network.rpc_port()
         ),
         Network::Signet => format!(
-            "signet=1\nrpcuser=test\nrpcpassword=test\nfallbackfee=0.0002\n\n[signet]\nrpcport={}\n",
+            "rpcuser=test\nrpcpassword=test\nfallbackfee=0.0002\n\n[signet]\nrpcport={}\n",
             network.rpc_port()
         ),
         Network::Mainnet => format!(
@@ -172,11 +172,12 @@ async fn start_bitcoin_core(network: Network) -> Result<BitcoinConnection> {
     let mut args = vec![
         "-m".to_string(),
         "node".to_string(),
+        format!("-chain={}", network.name()),
         "-ipcbind=unix".to_string(),
         format!("-datadir={}", datadir),
         "-daemon".to_string(),
     ];
-    
+
     info!("Starting Bitcoin Core with: {} {}", bitcoin_path, args.join(" "));
     
     let mut child = Command::new(&bitcoin_path)
