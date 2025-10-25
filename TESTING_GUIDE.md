@@ -6,7 +6,7 @@ This guide will walk you through testing a complete Stratum V2 mining stack usin
 
 **What you'll test:**
 - Bitcoin Core v30.0 in regtest mode
-- sv2-tp v1.0.2 (Stratum V2 Template Provider)
+- sv2-tp v1.0.3 (Stratum V2 Template Provider) - **UPDATED**
 - SRI Pool (Stratum V2 pool server)
 - SRI Translator (SV1 → SV2 protocol bridge)
 - Real mining hardware (Bitaxe, Apollo, or any Stratum V1 miner)
@@ -24,7 +24,7 @@ This guide will walk you through testing a complete Stratum V2 mining stack usin
 
 ### Software Requirements
 - Bitcoin Core v30.0
-- sv2-tp v1.0.2
+- sv2-tp v1.0.3 (⚠️ NOT v1.0.2 - breaking changes!)
 - Stratum Reference Implementation (SRI)
 
 ### Downloads
@@ -44,20 +44,25 @@ This guide will walk you through testing a complete Stratum V2 mining stack usin
    tar -xzf bitcoin-30.0-x86_64-linux-gnu.tar.gz -C ~/Downloads/
    ```
 
-2. **sv2-tp v1.0.2**
+2. **sv2-tp v1.0.3** ⚠️ **BREAKING CHANGES - SEE NOTES BELOW**
    ```bash
    # macOS ARM64
-   wget https://github.com/Sjors/sv2-tp/releases/download/v1.0.2/sv2-tp-1.0.2-arm64-apple-darwin.tar.gz
-   tar -xzf sv2-tp-1.0.2-arm64-apple-darwin.tar.gz
+   wget https://github.com/Sjors/sv2-tp/releases/download/v1.0.3/sv2-tp-1.0.3-aarch64-apple-darwin.tar.gz
+   tar -xzf sv2-tp-1.0.3-aarch64-apple-darwin.tar.gz
 
    # macOS x86_64
-   wget https://github.com/Sjors/sv2-tp/releases/download/v1.0.2/sv2-tp-1.0.2-x86_64-apple-darwin.tar.gz
-   tar -xzf sv2-tp-1.0.2-x86_64-apple-darwin.tar.gz
+   wget https://github.com/Sjors/sv2-tp/releases/download/v1.0.3/sv2-tp-1.0.3-x86_64-apple-darwin.tar.gz
+   tar -xzf sv2-tp-1.0.3-x86_64-apple-darwin.tar.gz
 
    # Linux x86_64
-   wget https://github.com/Sjors/sv2-tp/releases/download/v1.0.2/sv2-tp-1.0.2-x86_64-unknown-linux-gnu.tar.gz
-   tar -xzf sv2-tp-1.0.2-x86_64-unknown-linux-gnu.tar.gz
+   wget https://github.com/Sjors/sv2-tp/releases/download/v1.0.3/sv2-tp-1.0.3-x86_64-unknown-linux-gnu.tar.gz
+   tar -xzf sv2-tp-1.0.3-x86_64-unknown-linux-gnu.tar.gz
    ```
+
+   **⚠️ CRITICAL v1.0.3 CHANGES:**
+   - Configuration file changed: now checks for `sv2-tp.conf` instead of `bitcoin.conf`
+   - Configuration method changed: `-chain=regtest` flag **NO LONGER WORKS**
+   - Must now use `bitcoind_url = "unix://..."` in config file (see configuration section below)
 
 3. **Stratum Reference Implementation**
    ```bash
@@ -86,14 +91,14 @@ Make sure all binaries are downloaded and in the correct locations:
 
 ```bash
 # Check Bitcoin Core
-~/Downloads/bitcoin-30.0/bin/bitcoin --version
+~/Downloads/bitcoin-30.0/bin/bitcoind --version
 
 # Check sv2-tp
-./sv2-tp-1.0.2/bin/sv2-tp --help
+./sv2-tp-1.0.3/bin/sv2-tp --help
 
 # Check SRI components
-./stratum-reference/roles/target/debug/pool_sv2 --help
-./stratum-reference/roles/target/debug/translator_sv2 --help
+./stratum-reference/roles/target/release/pool_sv2 --help
+./stratum-reference/roles/target/release/translator_sv2 --help
 ```
 
 ### Step 3: Start the Mining Stack
@@ -122,11 +127,13 @@ Stratum V2 Mining Stack Running!
 
 Components:
   • Bitcoin Core v30.0 - regtest
-  • sv2-tp v1.0.2 - port 18447
+  • sv2-tp v1.0.3 - port 18447
   • SRI Pool - port 34254
   • SRI Translator - port 3333
 
 Point your miner to: YOUR_IP:3333
+
+Note: If you're NOT using START_DEMO.sh, see manual setup section for v1.0.3 config requirements
 ```
 
 ### Step 4: Find Your Server IP Address
@@ -140,6 +147,84 @@ ip addr show | grep "inet " | grep -v 127.0.0.1
 ```
 
 Note this IP address - you'll need it for your miner configuration.
+
+---
+
+## Manual Setup (Alternative to START_DEMO.sh)
+
+If you prefer to start components manually or need to understand the v1.0.3 configuration:
+
+### sv2-tp v1.0.3 Configuration File
+
+**IMPORTANT:** v1.0.3 changed how Bitcoin Core connection works!
+
+Create `sv2-tp-1.0.3/sv2-tp-config.toml`:
+
+```bash
+cd sv2-tp-1.0.3
+
+# Create config file
+cat > sv2-tp-config.toml <<EOF
+# Bitcoin Core IPC connection (v1.0.3 requirement)
+bitcoind_url = "unix://$HOME/.bitcoin/regtest/node.sock"
+
+# Template Provider settings
+tp_address = "127.0.0.1:18447"
+core_rpc_url = "http://127.0.0.1:18443"
+core_rpc_user = "sv2user"
+core_rpc_pass = "sv2pass123"
+
+# Coinbase output (where mining rewards go)
+[[coinbase_outputs]]
+output_script_type = "P2WPKH"
+output_script_value = "bcrt1qe8le5cgtujqrx9r85e8q4r6zjy4c227zhgtyea"
+EOF
+```
+
+**Key Differences from v1.0.2:**
+- ❌ Old: `./bin/sv2-tp -chain=regtest` (command-line flag)
+- ✅ New: `./bin/sv2-tp --config sv2-tp-config.toml` (config file with `bitcoind_url`)
+
+### Starting Components Manually
+
+```bash
+# 1. Start Bitcoin Core
+~/Downloads/bitcoin-30.0/bin/bitcoind \
+  -regtest \
+  -m node \
+  -ipcbind=unix \
+  -rpcuser=sv2user \
+  -rpcpassword=sv2pass123 \
+  -rpcport=18443 \
+  -daemon
+
+# Wait for Bitcoin to fully start
+sleep 5
+
+# 2. Start sv2-tp with config file
+cd sv2-tp-1.0.3
+./bin/sv2-tp --config sv2-tp-config.toml > /tmp/sv2-tp.log 2>&1 &
+cd ..
+
+# Wait for sv2-tp to extract authority key
+sleep 3
+
+# 3. Start SRI Pool (with config pointing to sv2-tp)
+./stratum-reference/roles/target/release/pool_sv2 \
+  -c config/sri_pool_regtest.WORKING.toml > /tmp/pool.log 2>&1 &
+
+# 4. Start SRI Translator
+./stratum-reference/roles/target/release/translator_sv2 \
+  -c config/translator_config.WORKING.toml > /tmp/translator.log 2>&1 &
+
+# Verify all components running
+ps aux | grep -E "(bitcoind|sv2-tp|pool_sv2|translator_sv2)" | grep -v grep
+```
+
+**Why the config file matters:**
+- v1.0.3 requires IPC socket path for multiprocess Bitcoin Core
+- The socket location varies by network (regtest/signet/mainnet)
+- Using `bitcoind_url` allows sv2-tp to find the correct socket
 
 ---
 
@@ -346,11 +431,47 @@ Share accepted
    cat /tmp/translator.log
    ```
 
+### sv2-tp v1.0.3 Specific Issues
+
+**Symptom: sv2-tp hangs on startup with no output**
+
+This is the **#1 issue** with v1.0.3!
+
+**Root Cause:** Using old v1.0.2 startup method (`-chain=regtest` flag)
+
+**Solution:**
+```bash
+# ❌ DON'T DO THIS (v1.0.2 method - will hang!)
+./bin/sv2-tp -chain=regtest
+
+# ✅ DO THIS (v1.0.3 method - requires config file)
+./bin/sv2-tp --config sv2-tp-config.toml
+```
+
+**How to verify config is correct:**
+```bash
+# Check your config has bitcoind_url
+cat sv2-tp-1.0.3/sv2-tp-config.toml | grep bitcoind_url
+
+# Should show something like:
+# bitcoind_url = "unix:///Users/yourname/.bitcoin/regtest/node.sock"
+
+# Verify the socket exists
+ls -la ~/.bitcoin/regtest/node.sock
+```
+
+**Still hanging? Check Bitcoin Core started with `-m node -ipcbind=unix`:**
+```bash
+ps aux | grep bitcoind | grep -- "-m node"
+```
+
+---
+
 ### Bitcoin Core Issues
 
 1. **Check IPC socket exists:**
    ```bash
-   ls -la /tmp/bitcoin_regtest/regtest/node.sock
+   ls -la ~/.bitcoin/regtest/node.sock
    ```
 
 2. **Verify Bitcoin is out of IBD:**
@@ -483,12 +604,21 @@ If you encounter problems during testing:
 
 - **Bitcoin Core Documentation**: https://bitcoincore.org/en/doc/
 - **sv2-tp Repository**: https://github.com/Sjors/sv2-tp
+- **v1.0.3 Release Notes**: https://github.com/Sjors/sv2-tp/releases/tag/v1.0.3
 - **Stratum V2 Specification**: https://github.com/stratum-mining/sv2-spec
 - **SRI Documentation**: https://github.com/stratum-mining/stratum
 
 ---
 
 ## FAQ
+
+**Q: What changed between sv2-tp v1.0.2 and v1.0.3?**
+A: **CRITICAL BREAKING CHANGE!**
+- v1.0.2: Used `-chain=regtest` command-line flag
+- v1.0.3: Requires config file with `bitcoind_url = "unix://..."`
+- v1.0.3 will **hang forever** if started with old v1.0.2 method
+- Config file name changed: now checks for `sv2-tp.conf` instead of `bitcoin.conf`
+- See [release notes](https://github.com/Sjors/sv2-tp/releases/tag/v1.0.3) for full details
 
 **Q: Why regtest and not testnet/mainnet?**
 A: Regtest has extremely low difficulty, making it perfect for testing. Your miner will find blocks within seconds, confirming the full stack works end-to-end.
