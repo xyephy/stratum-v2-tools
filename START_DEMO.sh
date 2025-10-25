@@ -1,6 +1,6 @@
 #!/bin/bash
 # Working Stratum V2 Mining Demo
-# Bitcoin Core v30.0 + sv2-tp v1.0.2 + SRI Pool + SRI Translator
+# Bitcoin Core v30.0 + sv2-tp v1.0.3 + SRI Pool + SRI Translator
 
 set -e
 
@@ -12,14 +12,14 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # Configuration
-BITCOIN_BIN=~/Downloads/bitcoin-30.0/bin/bitcoin
-BITCOIN_CLI=~/Downloads/bitcoin-30.0/bin/bitcoin-cli
+BITCOIN_BIN=~/workshop/bitcoin-30.0/bin/bitcoin
+BITCOIN_CLI=~/workshop/bitcoin-30.0/bin/bitcoin-cli
 BITCOIN_DATADIR=/tmp/bitcoin_regtest
-SV2_TP=./sv2-tp-1.0.2/bin/sv2-tp
-POOL_BIN=./stratum-reference/roles/target/debug/pool_sv2
-TRANSLATOR_BIN=./stratum-reference/roles/target/debug/translator_sv2
-POOL_CONFIG=./config/sri_pool_regtest.WORKING.toml
-TRANSLATOR_CONFIG=./config/translator_config.WORKING.toml
+SV2_TP=~/workshop/sv2-tp-1.0.3/bin/sv2-tp
+POOL_BIN=~/workshop/stratum-v2-tools/stratum-reference/roles/target/release/pool_sv2
+TRANSLATOR_BIN=~/workshop/stratum-v2-tools/stratum-reference/roles/target/release/translator_sv2
+POOL_CONFIG=~/workshop/stratum-v2-tools/config/sri_pool_regtest.WORKING.toml
+TRANSLATOR_CONFIG=~/workshop/stratum-v2-tools/config/translator_config.WORKING.toml
 
 # Clean slate
 echo "🧹 Cleaning up old processes..."
