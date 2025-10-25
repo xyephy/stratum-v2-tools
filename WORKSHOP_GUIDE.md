@@ -519,7 +519,7 @@ If even CPU mining is too slow, you can simulate block discovery:
 
 ```bash
 # Generate 5 blocks instantly (simulating miner finding them)
-~/Downloads/bitcoin-30.0/bin/bitcoin-cli -datadir=/tmp/bitcoin_regtest -rpcuser=test -rpcpassword=test -rpcport=18443 generatetoaddress 5 bcrt1qe8le5cgtujqrx9r85e8q4r6zjy4c227zhgtyea
+~/workshop/bitcoin-30.0/bin/bitcoin-cli -datadir=/tmp/bitcoin_regtest -rpcuser=test -rpcpassword=test -rpcport=18443 generatetoaddress 5 bcrt1qe8le5cgtujqrx9r85e8q4r6zjy4c227zhgtyea
 
 # Watch the pool logs to see it receive new templates
 tail -20 /tmp/pool.log
@@ -893,52 +893,6 @@ CPU mining is perfect for learning - you'll find blocks on regtest, just slower 
 
 ---
 
-## Workshop Checklist
-
-### Before Workshop
-- [ ] Test entire demo flow on fresh machine
-- [ ] Download all binaries (Bitcoin Core, sv2-tp)
-- [ ] Verify network connectivity
-- [ ] Charge mining hardware
-- [ ] Print this guide for reference
-- [ ] Prepare backup laptop (just in case!)
-
-### During Workshop
-- [ ] Introduce Stratum V2 benefits (5 min)
-- [ ] Live demo Part 1-4 (45 min)
-- [ ] Connect live hardware (15 min)
-- [ ] Monitor and verify (10 min)
-- [ ] Q&A (15 min)
-
-### After Workshop
-- [ ] Share slides/guide with attendees
-- [ ] Collect feedback
-- [ ] Update docs based on questions
-- [ ] Follow up with interested contributors
-
----
-
-## Final Notes
-
-**This guide was battle-tested through:**
-- Multiple regtest demos
-- Signet testing with real network
-- Multi-miner configurations (Bitaxe + Apollo)
-- sv2-tp version upgrades (1.0.2 → 1.0.3)
-- Authority key mismatch debugging
-- Network configuration troubleshooting
-
-**Your workshop will succeed because:**
-✅ Plug-and-play setup works
-✅ Authority keys auto-configure
-✅ Multi-miner support verified
-✅ Comprehensive troubleshooting guide
-✅ Real hardware tested
-
-**Good luck with your workshop! You've got this! 🚀**
-
----
-
 **Document Version:** 1.0
-**Last Updated:** Workshop Day
+**Last Updated:** 2025-10-25
 **Tested On:** macOS (ARM64), Bitcoin Core v30.0, sv2-tp v1.0.3
