@@ -85,9 +85,8 @@ Bitcoin Core version v30.0.0
 
 ```bash
 # Start bitcoind in regtest mode with required flags
-./bitcoin-30.0/bin/bitcoind \
-  -regtest \
-  -m node \
+/bitcoin-30.0/bin/bitcoin \
+  -m node -regtest \
   -ipcbind=unix \
   -rpcuser=sv2user \
   -rpcpassword=sv2pass123 \
