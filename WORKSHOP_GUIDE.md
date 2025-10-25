@@ -462,7 +462,77 @@ inet 10.0.0.8 netmask 0xffffff00 broadcast 10.0.0.255
    ```
 4. Click **Save & Apply**
 
-### Step 5.4: Verify Miner Connections
+### Step 5.4: Alternative - CPU Mining (No Hardware Required)
+
+**For attendees without mining hardware:**
+
+If you don't have a Bitaxe or other ASIC miner, you can use CPU mining software to demonstrate the full stack.
+
+**Install cpuminer-multi:**
+
+```bash
+# macOS (using Homebrew)
+brew install cpuminer
+
+# Linux (Ubuntu/Debian)
+sudo apt-get update
+sudo apt-get install -y build-essential libcurl4-openssl-dev git
+git clone https://github.com/tpruvot/cpuminer-multi
+cd cpuminer-multi
+./build.sh
+```
+
+**Start CPU Mining:**
+
+```bash
+# Get your server IP first
+SERVER_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -1)
+echo "Mining to: $SERVER_IP:3333"
+
+# Start cpuminer (macOS with Homebrew)
+cpuminer -a sha256d -o stratum+tcp://$SERVER_IP:3333 -u workshop_cpu_miner -p x --coinbase-addr=bcrt1qe8le5cgtujqrx9r85e8q4r6zjy4c227zhgtyea
+
+# OR if you built from source
+./cpuminer -a sha256d -o stratum+tcp://$SERVER_IP:3333 -u workshop_cpu_miner -p x --coinbase-addr=bcrt1qe8le5cgtujqrx9r85e8q4r6zjy4c227zhgtyea
+```
+
+**Expected CPU Miner Output:**
+```
+[2025-10-25 08:00:00] Starting Stratum on stratum+tcp://10.0.0.8:3333
+[2025-10-25 08:00:00] Binding thread 0 to cpu 0
+[2025-10-25 08:00:00] Binding thread 1 to cpu 1
+[2025-10-25 08:00:01] Stratum connection established
+[2025-10-25 08:00:01] Stratum difficulty set to 1
+[2025-10-25 08:00:02] CPU #0: 125.5 kH/s
+[2025-10-25 08:00:02] CPU #1: 121.2 kH/s
+```
+
+**💡 Workshop Note:**
+- CPU mining is VERY slow (~250 kH/s vs 500 GH/s for Bitaxe)
+- On regtest it still works - you'll find blocks, just slower
+- This proves the SV2 stack works without specialized hardware
+- Perfect for testing and development
+
+**Alternative: Use Bitcoin Core's `generatetoaddress` for Quick Demo:**
+
+If even CPU mining is too slow, you can simulate block discovery:
+
+```bash
+# Generate 5 blocks instantly (simulating miner finding them)
+~/Downloads/bitcoin-30.0/bin/bitcoin-cli -datadir=/tmp/bitcoin_regtest -rpcuser=test -rpcpassword=test -rpcport=18443 generatetoaddress 5 bcrt1qe8le5cgtujqrx9r85e8q4r6zjy4c227zhgtyea
+
+# Watch the pool logs to see it receive new templates
+tail -20 /tmp/pool.log
+```
+
+**When to use each method:**
+- **Hardware (Bitaxe/Apollo):** Best for showing real mining hardware in action
+- **CPU Miner:** Good for attendees to participate without hardware
+- **generatetoaddress:** Quick demo when you just need to show the stack working
+
+---
+
+### Step 5.5: Verify Miner Connections
 
 ```bash
 # Check translator logs
@@ -779,6 +849,15 @@ A: Any Stratum V1 miner:
 - Whatsminer M20/M30
 - Apollo BTC
 - Any ASIC with SV1 support
+- CPU miners (cpuminer, cpuminer-multi)
+
+**Q: Can I test without mining hardware?**
+A: Yes! Three options:
+1. **CPU Mining:** Install `cpuminer` and mine with your laptop/computer (see Step 5.4)
+2. **generatetoaddress:** Use Bitcoin Core to simulate block discovery instantly
+3. **Cloud Mining:** Rent hashrate from NiceHash/MiningRigRentals and point it to your pool
+
+CPU mining is perfect for learning - you'll find blocks on regtest, just slower than ASICs.
 
 ---
 
