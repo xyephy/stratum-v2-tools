@@ -803,7 +803,10 @@ async fn run_json_rpc_server(state: Arc<DaemonState>) -> Result<()> {
     use hyper::service::{make_service_fn, service_fn};
     use hyper::{Body, Request, Response, Server};
     use std::convert::Infallible;
-    
+
+    // Clone state for graceful shutdown before it's moved into make_svc
+    let shutdown_state = Arc::clone(&state);
+
     let make_svc = make_service_fn(move |_conn| {
         let state = Arc::clone(&state);
         async move {
@@ -812,29 +815,35 @@ async fn run_json_rpc_server(state: Arc<DaemonState>) -> Result<()> {
                 async move {
                     let body_bytes = hyper::body::to_bytes(req.into_body()).await?;
                     let request: JsonRpcRequest = serde_json::from_slice(&body_bytes)?;
-                    
+
                     let response = handle_json_rpc(request, state).await
                         .unwrap_or_else(|e| JsonRpcResponse {
                             result: serde_json::json!({"error": e.to_string()}),
                         });
-                    
+
                     let response_json = serde_json::to_string(&response)?;
-                    
+
                     Ok::<_, anyhow::Error>(Response::new(Body::from(response_json)))
                 }
             }))
         }
     });
-    
+
     let addr = ([127, 0, 0, 1], 8333).into();
     let server = Server::bind(&addr).serve(make_svc);
-    
+
     info!("JSON-RPC server listening on http://127.0.0.1:8333");
-    
-    if let Err(e) = server.await {
+
+    // Make server gracefully shutdownable
+    let graceful = server.with_graceful_shutdown(async move {
+        shutdown_state.cancellation_token.cancelled().await;
+        info!("RPC server shutting down gracefully");
+    });
+
+    if let Err(e) = graceful.await {
         error!("Server error: {}", e);
     }
-    
+
     Ok(())
 }
 
@@ -878,15 +887,17 @@ async fn main() -> Result<()> {
     // Load configuration
     let config = load_config()?;
     info!("Loaded config for network: {}", config.daemon.network);
-    
+
     // Create daemon state
     let state = Arc::new(DaemonState::new(config));
 
-    // Start all components automatically
-    if let Err(e) = start_all_components(Arc::clone(&state)).await {
-        error!("Failed to start components: {}", e);
-        return Err(e);
-    }
+    // Start component initialization in background
+    let init_state = Arc::clone(&state);
+    tokio::spawn(async move {
+        if let Err(e) = start_all_components(init_state).await {
+            error!("Failed to start components: {}", e);
+        }
+    });
 
     // Use tokio::select to run monitoring, RPC server, and handle shutdown
     tokio::select! {
