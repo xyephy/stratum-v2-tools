@@ -9,7 +9,8 @@ use tokio::net::TcpListener;
 use tokio::process::{Child, Command as TokioCommand};
 use tokio::signal;
 use tokio::sync::RwLock;
-use tokio::time::{sleep, Duration};
+use tokio::time::{sleep, Duration, interval};
+use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 use std::sync::Arc;
 use std::str::FromStr;
@@ -76,6 +77,8 @@ pub struct DaemonState {
     pub processes: RwLock<HashMap<String, Child>>,
     pub start_time: std::time::Instant,
     pub connected_miners: RwLock<HashMap<String, MinerInfo>>,
+    pub cancellation_token: CancellationToken,
+    pub authority_key: RwLock<Option<String>>, // Cache authority key for restarts
 }
 
 impl DaemonState {
@@ -86,6 +89,8 @@ impl DaemonState {
             processes: RwLock::new(HashMap::new()),
             start_time: std::time::Instant::now(),
             connected_miners: RwLock::new(HashMap::new()),
+            cancellation_token: CancellationToken::new(),
+            authority_key: RwLock::new(None),
         }
     }
 
@@ -214,9 +219,38 @@ async fn start_bitcoin_core(state: Arc<DaemonState>) -> Result<()> {
     Ok(())
 }
 
-async fn start_sv2_tp(state: Arc<DaemonState>) -> Result<()> {
+async fn extract_authority_key_from_logs() -> Result<String> {
+    use tokio::fs::File;
+    use tokio::io::{AsyncBufReadExt, BufReader};
+
+    let log_path = "/tmp/sv2d-sv2-tp.log";
+
+    // Wait up to 10 seconds for the authority key to appear in logs
+    for _ in 0..10 {
+        if let Ok(file) = File::open(log_path).await {
+            let reader = BufReader::new(file);
+            let mut lines = reader.lines();
+
+            while let Ok(Some(line)) = lines.next_line().await {
+                if line.contains("Template Provider authority key:") {
+                    // Extract key like: "9cEoWDHp2KtT3pUYaAsjS6yzquNv8QXx3qvCmu8iz8WJ1EB3jUj"
+                    if let Some(key) = line.split("authority key: ").nth(1) {
+                        let key = key.trim().to_string();
+                        info!("📝 Extracted sv2-tp authority key: {}", key);
+                        return Ok(key);
+                    }
+                }
+            }
+        }
+        sleep(Duration::from_secs(1)).await;
+    }
+
+    Err(anyhow::anyhow!("Failed to extract authority key from sv2-tp logs within 10 seconds"))
+}
+
+async fn start_sv2_tp(state: Arc<DaemonState>) -> Result<String> {
     info!("🟡 Starting sv2-tp...");
-    
+
     let network = &state.config.daemon.network;
     let datadir = format!("/tmp/bitcoin_{}", network);
     
@@ -235,7 +269,7 @@ async fn start_sv2_tp(state: Arc<DaemonState>) -> Result<()> {
         .open("/tmp/sv2d-sv2-tp.log")
         .context("Failed to open sv2-tp log file")?;
 
-    let child = TokioCommand::new("./sv2-tp-1.0.2/bin/sv2-tp")
+    let child = TokioCommand::new("./sv2-tp-1.0.3/bin/sv2-tp")
         .arg(format!("-chain={}", network))
         .arg(format!("-datadir={}", datadir))
         .arg(format!("-sv2port={}", sv2_port))
@@ -260,7 +294,15 @@ async fn start_sv2_tp(state: Arc<DaemonState>) -> Result<()> {
             let mut processes = state.processes.write().await;
             processes.insert("sv2-tp".to_string(), child);
 
-            return Ok(());
+            // Extract authority key from logs
+            let authority_key = extract_authority_key_from_logs().await
+                .context("Failed to extract authority key from sv2-tp logs")?;
+
+            // Cache the authority key for future restarts
+            let mut cached_key = state.authority_key.write().await;
+            *cached_key = Some(authority_key.clone());
+
+            return Ok(authority_key);
         }
         if i % 5 == 0 {
             info!("Waiting for sv2-tp (connecting to Bitcoin IPC)... ({}/30)", i + 1);
@@ -270,21 +312,23 @@ async fn start_sv2_tp(state: Arc<DaemonState>) -> Result<()> {
     Err(anyhow::anyhow!("sv2-tp failed to start within 60 seconds - check that Bitcoin Core IPC is ready"))
 }
 
-async fn start_pool(state: Arc<DaemonState>) -> Result<()> {
+async fn start_pool(state: Arc<DaemonState>, authority_key: &str) -> Result<()> {
     info!("🟡 Starting SRI Pool...");
-    
+
     // Generate pool config
     let network = &state.config.daemon.network;
     let tp_port = match network.as_str() {
         "regtest" => 18447,
-        "signet" => 38336, 
+        "signet" => 38336,
         "mainnet" => 8336,
         _ => 38336, // default to signet port
     };
-    
+
+    info!("📝 Generating pool config with authority key: {}", authority_key);
+
     let pool_config = format!(
-        r#"# SRI Pool config for {}
-authority_public_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
+        r#"# SRI Pool config for {} (dynamically generated)
+authority_public_key = "{}"
 authority_secret_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
 cert_validity_sec = 3600
 test_only_listen_adress_plain = "0.0.0.0:34250"
@@ -304,11 +348,12 @@ tp_address = "127.0.0.1:{}"
 shares_per_minute = 1.0
 share_batch_size = 10
 "#,
-        network, state.config.pool.coinbase_address, state.config.pool.signature, tp_port
+        network, authority_key, state.config.pool.coinbase_address, state.config.pool.signature, tp_port
     );
-    
+
     let config_path = format!("/tmp/pool_{}.toml", network);
     fs::write(&config_path, pool_config)?;
+    info!("📝 Wrote dynamic pool config to: {}", config_path);
 
     // Open log files
     let log_file = std::fs::OpenOptions::new()
@@ -319,7 +364,7 @@ share_batch_size = 10
 
     let child = TokioCommand::new("./stratum-reference/roles/target/debug/pool_sv2")
         .arg("--config")
-        .arg("./config/sri_pool_regtest.WORKING.toml")
+        .arg(&config_path)  // Use dynamically generated config
         .stdout(Stdio::from(log_file.try_clone()?))
         .stderr(Stdio::from(log_file))
         .spawn()
@@ -350,7 +395,11 @@ share_batch_size = 10
 
 async fn start_translator(state: Arc<DaemonState>) -> Result<()> {
     info!("🟡 Starting SRI Translator...");
-    
+
+    // Give pool extra time to be fully ready for connections
+    info!("Waiting 10 seconds for pool to be fully ready to accept connections...");
+    sleep(Duration::from_secs(10)).await;
+
     // Generate translator config based on our working config
     let translator_config = format!(
         r#"# SRI Translator Configuration for Multi-miner Support
@@ -581,22 +630,126 @@ async fn get_system_info(state: Arc<DaemonState>) -> SystemInfo {
     }
 }
 
+async fn monitor_components_loop(state: Arc<DaemonState>) {
+    info!("🔍 Starting component monitoring loop");
+    let mut check_interval = interval(Duration::from_secs(10));
+    let mut failure_counts: HashMap<String, u32> = HashMap::new();
+
+    loop {
+        tokio::select! {
+            _ = check_interval.tick() => {
+                check_and_restart_components(&state, &mut failure_counts).await;
+            }
+            _ = state.cancellation_token.cancelled() => {
+                info!("Monitor loop shutting down");
+                break;
+            }
+        }
+    }
+}
+
+async fn check_and_restart_components(
+    state: &Arc<DaemonState>,
+    failure_counts: &mut HashMap<String, u32>,
+) {
+    let components_to_check = vec!["bitcoin", "sv2-tp", "pool", "translator"];
+
+    for component_name in components_to_check {
+        let mut processes = state.processes.write().await;
+
+        if let Some(child) = processes.get_mut(component_name) {
+            // Check if process is still running
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    // Process exited
+                    warn!("{} process exited with status: {}", component_name, status);
+
+                    // Update status
+                    state.update_component_status(component_name, false, None).await;
+
+                    // Remove dead process
+                    drop(processes); // Release lock before restarting
+
+                    // Track failures
+                    let failures = failure_counts.entry(component_name.to_string()).or_insert(0);
+                    *failures += 1;
+
+                    if *failures > 10 {
+                        error!("{} has failed {} times consecutively, giving up", component_name, failures);
+                        state.set_component_error(
+                            component_name,
+                            format!("Component failed {} times and will not be restarted automatically", failures)
+                        ).await;
+                        continue;
+                    }
+
+                    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 32s, 64s (max 60s)
+                    let backoff = std::cmp::min(2u64.pow(*failures - 1), 60);
+                    warn!("{} restarting after {} second backoff (failure {}/10)",
+                          component_name, backoff, failures);
+                    sleep(Duration::from_secs(backoff)).await;
+
+                    // Attempt restart
+                    let restart_result: Result<()> = match component_name {
+                        "bitcoin" => start_bitcoin_core(Arc::clone(state)).await,
+                        "sv2-tp" => {
+                            // sv2-tp returns authority key which gets cached automatically
+                            start_sv2_tp(Arc::clone(state)).await.map(|_| ())
+                        },
+                        "pool" => {
+                            // Use cached authority key for pool restart
+                            let auth_key = state.authority_key.read().await;
+                            if let Some(key) = auth_key.as_ref() {
+                                start_pool(Arc::clone(state), key).await
+                            } else {
+                                Err(anyhow::anyhow!("No cached authority key available for pool restart"))
+                            }
+                        },
+                        "translator" => start_translator(Arc::clone(state)).await,
+                        _ => continue,
+                    };
+
+                    match restart_result {
+                        Ok(_) => {
+                            info!("✅ Successfully restarted {}", component_name);
+                            *failures = 0; // Reset failure count on success
+                        }
+                        Err(e) => {
+                            error!("Failed to restart {}: {}", component_name, e);
+                        }
+                    }
+                }
+                Ok(None) => {
+                    // Process is still running, all good
+                }
+                Err(e) => {
+                    error!("Error checking {} status: {}", component_name, e);
+                }
+            }
+        }
+    }
+}
+
 async fn start_all_components(state: Arc<DaemonState>) -> Result<()> {
     info!("🚀 Starting all components...");
-    
+
     // Start in order: Bitcoin -> sv2-tp -> Pool -> Translator
     start_bitcoin_core(Arc::clone(&state)).await?;
-    start_sv2_tp(Arc::clone(&state)).await?;
-    start_pool(Arc::clone(&state)).await?;
+
+    // Start sv2-tp and get the authority key it generates
+    let authority_key = start_sv2_tp(Arc::clone(&state)).await?;
+
+    // Pass authority key to pool and translator
+    start_pool(Arc::clone(&state), &authority_key).await?;
     start_translator(Arc::clone(&state)).await?;
-    
+
     info!("✅ All components started successfully!");
     Ok(())
 }
 
-async fn stop_all_components(state: Arc<DaemonState>) -> Result<()> {
+async fn stop_all_components(state: &Arc<DaemonState>) -> Result<()> {
     info!("🛑 Stopping all components...");
-    
+
     let mut processes = state.processes.write().await;
     
     // Stop in reverse order
@@ -629,9 +782,11 @@ async fn handle_json_rpc(
             })
         }
         "stop" => {
-            stop_all_components(state).await?;
+            stop_all_components(&state).await?;
+            // Trigger graceful daemon shutdown
+            state.cancellation_token.cancel();
             Ok(JsonRpcResponse {
-                result: serde_json::json!({"status": "stopped"}),
+                result: serde_json::json!({"status": "stopped", "daemon": "shutting down"}),
             })
         }
         "status" => {
@@ -728,33 +883,33 @@ async fn main() -> Result<()> {
     let state = Arc::new(DaemonState::new(config));
 
     // Start all components automatically
-    let component_state = Arc::clone(&state);
-    tokio::spawn(async move {
-        if let Err(e) = start_all_components(component_state).await {
-            error!("Failed to start components: {}", e);
-            std::process::exit(1);
-        }
-    });
+    if let Err(e) = start_all_components(Arc::clone(&state)).await {
+        error!("Failed to start components: {}", e);
+        return Err(e);
+    }
 
-    // Start JSON-RPC server
-    let server_state = Arc::clone(&state);
-    let server_handle = tokio::spawn(async move {
-        if let Err(e) = run_json_rpc_server(server_state).await {
-            error!("JSON-RPC server error: {}", e);
+    // Use tokio::select to run monitoring, RPC server, and handle shutdown
+    tokio::select! {
+        _ = monitor_components_loop(Arc::clone(&state)) => {
+            info!("Monitor loop ended");
         }
-    });
+        result = run_json_rpc_server(Arc::clone(&state)) => {
+            if let Err(e) = result {
+                error!("JSON-RPC server error: {}", e);
+            }
+        }
+        _ = signal::ctrl_c() => {
+            info!("Received shutdown signal (Ctrl+C)");
+        }
+        _ = state.cancellation_token.cancelled() => {
+            info!("Received shutdown request via RPC");
+        }
+    }
 
-    // Handle shutdown signals
-    let shutdown_state = Arc::clone(&state);
-    tokio::spawn(async move {
-        signal::ctrl_c().await.expect("Failed to listen for ctrl-c");
-        info!("Received shutdown signal");
-        let _ = stop_all_components(shutdown_state).await;
-        std::process::exit(0);
-    });
-    
-    // Wait for server
-    server_handle.await?;
-    
+    // Graceful shutdown
+    info!("Shutting down sv2d...");
+    state.cancellation_token.cancel();
+    stop_all_components(&state).await?;
+
     Ok(())
 }
