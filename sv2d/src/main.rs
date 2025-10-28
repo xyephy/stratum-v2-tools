@@ -18,6 +18,59 @@ use std::str::FromStr;
 mod bitcoin;
 use bitcoin::{Network, ensure_bitcoin_running};
 
+/// Find a binary by searching common locations
+fn find_binary(name: &str) -> Result<PathBuf> {
+    let searched_paths = vec![
+        // Current directory
+        PathBuf::from(format!("./{}", name)),
+        // Cargo build directories
+        PathBuf::from(format!("./target/debug/{}", name)),
+        PathBuf::from(format!("./target/release/{}", name)),
+        // Common sv2-tp locations
+        PathBuf::from(format!("./sv2-tp-1.0.3/bin/{}", name)),
+        PathBuf::from(format!("./sv2-tp-1.0.2/bin/{}", name)),
+        PathBuf::from(format!("./bin/{}", name)),
+        // Stratum reference implementation locations
+        PathBuf::from(format!("./stratum-reference/roles/target/debug/{}", name)),
+        PathBuf::from(format!("./stratum-reference/roles/target/release/{}", name)),
+        // System paths
+        PathBuf::from(format!("/usr/local/bin/{}", name)),
+        PathBuf::from(format!("{}/.cargo/bin/{}", std::env::var("HOME").unwrap_or_else(|_| ".".to_string()), name)),
+    ];
+
+    // Check searched paths first
+    for path in &searched_paths {
+        if path.exists() && path.is_file() {
+            info!("Found {} at {}", name, path.display());
+            return Ok(path.clone());
+        }
+    }
+
+    // Check PATH environment variable
+    if let Ok(path_env) = std::env::var("PATH") {
+        for dir in path_env.split(':') {
+            let path = PathBuf::from(dir).join(name);
+            if path.exists() && path.is_file() {
+                info!("Found {} in PATH at {}", name, path.display());
+                return Ok(path);
+            }
+        }
+    }
+
+    // Binary not found - create helpful error message
+    let searched_str = searched_paths
+        .iter()
+        .map(|p| format!("  - {}", p.display()))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    Err(anyhow::anyhow!(
+        "Binary '{}' not found. Searched locations:\n{}\n\
+         Please ensure the binary is installed or in your PATH.",
+        name, searched_str
+    ))
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DaemonConfig {
     pub daemon: DaemonSettings,
@@ -245,7 +298,11 @@ async fn extract_authority_key_from_logs() -> Result<String> {
         sleep(Duration::from_secs(1)).await;
     }
 
-    Err(anyhow::anyhow!("Failed to extract authority key from sv2-tp logs within 10 seconds"))
+    Err(anyhow::anyhow!(
+        "Authority key not found in sv2-tp logs. \
+         The Template Provider may have failed to start or logs are being written too slowly. \
+         Check that Bitcoin Core IPC is responding and sv2-tp binary is working correctly."
+    ))
 }
 
 async fn start_sv2_tp(state: Arc<DaemonState>) -> Result<String> {
@@ -269,7 +326,8 @@ async fn start_sv2_tp(state: Arc<DaemonState>) -> Result<String> {
         .open("/tmp/sv2d-sv2-tp.log")
         .context("Failed to open sv2-tp log file")?;
 
-    let child = TokioCommand::new("./sv2-tp-1.0.3/bin/sv2-tp")
+    let sv2_tp_path = find_binary("sv2-tp")?;
+    let child = TokioCommand::new(&sv2_tp_path)
         .arg(format!("-chain={}", network))
         .arg(format!("-datadir={}", datadir))
         .arg(format!("-sv2port={}", sv2_port))
@@ -309,7 +367,11 @@ async fn start_sv2_tp(state: Arc<DaemonState>) -> Result<String> {
         }
     }
 
-    Err(anyhow::anyhow!("sv2-tp failed to start within 60 seconds - check that Bitcoin Core IPC is ready"))
+    Err(anyhow::anyhow!(
+        "Template Provider (sv2-tp) failed to start within 60 seconds. \
+         Bitcoin Core IPC socket may not be ready or accessible. \
+         Verify Bitcoin Core is running with '-ipcbind=unix' flag and the IPC socket exists."
+    ))
 }
 
 async fn start_pool(state: Arc<DaemonState>, authority_key: &str) -> Result<()> {
@@ -362,7 +424,8 @@ share_batch_size = 10
         .open("/tmp/sv2d-pool.log")
         .context("Failed to open pool log file")?;
 
-    let child = TokioCommand::new("./stratum-reference/roles/target/debug/pool_sv2")
+    let pool_path = find_binary("pool_sv2")?;
+    let child = TokioCommand::new(&pool_path)
         .arg("--config")
         .arg(&config_path)  // Use dynamically generated config
         .stdout(Stdio::from(log_file.try_clone()?))
@@ -390,7 +453,11 @@ share_batch_size = 10
         }
     }
     
-    Err(anyhow::anyhow!("SRI Pool failed to start within 30 seconds"))
+    Err(anyhow::anyhow!(
+        "SRI Pool failed to start within 30 seconds. \
+         The pool may be unable to bind to its port or configuration is invalid. \
+         Check that port 34254 is available and pool configuration is correct."
+    ))
 }
 
 async fn start_translator(state: Arc<DaemonState>) -> Result<()> {
@@ -444,7 +511,8 @@ authority_pubkey = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
         .open("/tmp/sv2d-translator.log")
         .context("Failed to open translator log file")?;
 
-    let child = TokioCommand::new("./stratum-reference/roles/target/debug/translator_sv2")
+    let translator_path = find_binary("translator_sv2")?;
+    let child = TokioCommand::new(&translator_path)
         .arg("--config")
         .arg("./config/translator_config.WORKING.toml")
         .stdout(Stdio::from(log_file.try_clone()?))
@@ -472,7 +540,11 @@ authority_pubkey = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
         }
     }
     
-    Err(anyhow::anyhow!("SRI Translator failed to start within 30 seconds"))
+    Err(anyhow::anyhow!(
+        "SRI Translator failed to start within 30 seconds. \
+         It may be unable to connect to the pool or bind to the stratum port. \
+         Verify the pool is running and port 34255 is available."
+    ))
 }
 
 async fn test_bitcoin_rpc(rpc_url: &str) -> Result<()> {
@@ -702,7 +774,11 @@ async fn check_and_restart_components(
                             if let Some(key) = auth_key.as_ref() {
                                 start_pool(Arc::clone(state), key).await
                             } else {
-                                Err(anyhow::anyhow!("No cached authority key available for pool restart"))
+                                Err(anyhow::anyhow!(
+                                    "Cannot restart pool: authority key not cached. \
+                                     The Template Provider must be running first to generate the authority key. \
+                                     Start sv2-tp before attempting pool restart."
+                                ))
                             }
                         },
                         "translator" => start_translator(Arc::clone(state)).await,
