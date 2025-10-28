@@ -3440,9 +3440,14 @@ dependencies = [
 name = "sv2d"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "clap",
+ "hyper 0.14.32",
+ "reqwest",
  "serde",
+ "serde_json",
  "tokio",
+ "tokio-util",
  "toml 0.8.23",
  "tracing",
  "tracing-subscriber",

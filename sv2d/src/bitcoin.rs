@@ -1,13 +1,13 @@
 use anyhow::{Context, Result};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 use std::fmt;
 use std::str::FromStr;
 use std::time::Duration;
-use tokio::process::{Child, Command};
+use tokio::process::Command;
 use tokio::time::sleep;
-use tracing::{info, warn};
+use tracing::info;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Network {
@@ -169,7 +169,7 @@ async fn start_bitcoin_core(network: Network) -> Result<BitcoinConnection> {
     std::fs::write(&conf_path, bitcoin_conf)
         .context("Failed to write bitcoin.conf")?;
     
-    let mut args = vec![
+    let args = vec![
         "-m".to_string(),
         "node".to_string(),
         format!("-chain={}", network.name()),
