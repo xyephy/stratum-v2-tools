@@ -1,0 +1,243 @@
+# =============================================================================
+# Bitaxe + Signet Configuration (RECOMMENDED FOR BEGINNERS)
+# =============================================================================
+# USE CASE: Solo mining on Bitcoin's signet test network
+# DIFFICULTY: Easy - real blocks, real wait times, but test bitcoins (worthless)
+# TIME TO MINE: Setup in 10 minutes, expect to find blocks periodically
+#
+# WHY SIGNET OVER REGTEST?
+#   - Signet behaves like real Bitcoin (10-minute blocks, realistic fees)
+#   - No manual block generation required
+#   - Safe testing environment with worthless coins
+#   - Perfect for learning before mainnet
+#
+# WHAT YOU NEED:
+# 1. Bitcoin Core v30+ running with: bitcoin -m node -signet -ipcbind=unix
+# 2. Wait for signet to sync (~1GB, takes 10-30 minutes)
+# 3. Get test coins from signet faucet: https://signetfaucet.com
+# 4. This config file
+# 5. Bitaxe on same network
+#
+# EXPECTED OUTPUT:
+#   ✅ Bitcoin Core syncs signet blockchain
+#   ✅ sv2d connects to Bitcoin Core
+#   ✅ Bitaxe connects to sv2d
+#   ✅ Shares submitted regularly
+#   ✅ Blocks found occasionally (depending on your hashrate vs network)
+#
+# TROUBLESHOOTING:
+#   - "Waiting for IBD": Bitcoin Core is still syncing, wait for 100% sync
+#   - "Connection refused": Make sure Bitcoin Core is running with -ipcbind=unix
+#   - "No shares": Check Bitaxe is pointed to correct IP address
+# =============================================================================
+
+[mode]
+# Solo mining mode - you keep 100% of block rewards
+type = "Solo"
+
+[mode.config]
+# WHERE BLOCK REWARDS GO
+# Generate a signet address with: bitcoin-cli -signet getnewaddress
+# SAVE THIS ADDRESS - mining rewards are sent here!
+# Format: tb1... (signet uses testnet bech32 addresses)
+coinbase_address = "tb1qae8ezz40t4mmpvc7jg87lfszxk4pkzz77yy6vh"
+
+# HOW OFTEN TO CHECK FOR NEW TRANSACTIONS (seconds)
+# On signet, blocks come every ~10 minutes (like mainnet)
+# Checking every 30 seconds is reasonable
+block_template_refresh_interval = 30
+
+# CUSTOM TRANSACTION SELECTION
+# false = use Bitcoin Core's selection (recommended)
+# true = advanced users only (requires Job Declarator setup)
+enable_custom_templates = false
+
+# MAXIMUM TEMPLATE AGE (seconds)
+# If Bitcoin Core becomes unresponsive, how long to use stale template?
+# 300 seconds (5 minutes) is safe
+max_template_age = 300
+
+[network]
+# WHERE MINERS CONNECT
+# 0.0.0.0:3333 = listen on all network interfaces
+# Standard Stratum port that most miners expect
+#
+# BITAXE USERS: Configure your Bitaxe:
+#   Pool URL: http://YOUR_COMPUTER_IP:3333
+#   Worker: bitaxe_signet
+#   Password: x
+bind_address = "0.0.0.0:3333"
+
+# MAXIMUM CONNECTIONS
+# For home mining: 10 is plenty
+max_connections = 10
+
+# TIMEOUTS
+connection_timeout = 30
+keepalive_interval = 60
+
+[bitcoin]
+# BITCOIN CORE CONNECTION (SIGNET)
+# Default signet RPC port is 38332 (different from mainnet's 8332)
+rpc_url = "http://127.0.0.1:38332"
+
+# RPC CREDENTIALS
+# Match these with your bitcoin.conf or command-line args
+rpc_user = "sv2user"
+rpc_password = "sv2pass123"
+
+# NETWORK TYPE
+# MUST be "Signet" to match your Bitcoin Core network
+network = "Signet"
+
+# BLOCK TEMPLATE TIMEOUT
+# Signet can be slower to generate templates than regtest
+# 30 seconds should be plenty
+block_template_timeout = 30
+
+# FEE-DELTA THRESHOLD (satoshis)
+# Only update template if fees change by at least this amount
+# Prevents excessive updates during fee spikes
+# On signet, fees are negligible, so 1 satoshi is fine
+# On mainnet, recommend 1000 satoshis to reduce noise
+fee_delta = 1
+
+[database]
+# SQLITE DATABASE FOR MINING STATS
+# Stores shares, blocks found, miner statistics, etc.
+url = "sqlite://sv2d_bitaxe_signet.db"
+max_connections = 10
+connection_timeout = 30
+enable_migrations = true
+
+[monitoring]
+# PROMETHEUS METRICS
+# Monitor your mining operation at http://YOUR_IP:9090/metrics
+enable_metrics = true
+metrics_bind_address = "0.0.0.0:9090"
+
+# HEALTH CHECKS
+enable_health_checks = true
+health_check_interval = 30
+
+[monitoring.metrics]
+enabled = true
+collection_interval = 10
+prometheus_port = 9090
+system_monitoring = true
+
+[monitoring.health.alert_thresholds]
+cpu_usage = 80.0
+memory_usage = 85.0
+connection_count = 9          # 90% of max_connections
+rejection_rate = 10.0         # Warn if >10% shares rejected
+response_time = 5000
+database_connections = 8
+
+[logging]
+# LOG SETTINGS
+# Use "debug" level while getting started to see what's happening
+# Switch to "info" once everything works
+level = "info"
+format = "Pretty"
+output = "Stdout"
+
+enable_correlation_ids = true
+redact_sensitive_data = true
+
+[security]
+# SECURITY SETTINGS
+# For local network: authentication not required
+# For internet-facing: enable authentication and TLS
+enable_authentication = false
+rate_limit_per_minute = 60
+enable_tls = false
+
+[security.auth]
+enabled = false
+session_timeout = 3600
+max_sessions_per_key = 10
+require_auth_for_read = false
+
+# =============================================================================
+# QUICK START GUIDE:
+#
+# STEP 1: Start Bitcoin Core on Signet
+# -------------------------------------
+# Option A (multiprocess mode, recommended for sv2-tp):
+#   bitcoin -m node -signet -ipcbind=unix -rpcuser=sv2user -rpcpassword=sv2pass123
+#
+# Option B (standard mode):
+#   bitcoind -signet -rpcuser=sv2user -rpcpassword=sv2pass123
+#
+# STEP 2: Wait for Initial Block Download (IBD)
+# ----------------------------------------------
+# Check sync progress:
+#   bitcoin-cli -signet getblockchaininfo
+#
+# Look for "blocks" to reach "headers" count
+# Typical sync time: 10-30 minutes for ~300k blocks
+#
+# STEP 3: Create Mining Wallet and Address
+# -----------------------------------------
+# Create wallet:
+#   bitcoin-cli -signet createwallet "mining_rewards"
+#
+# Generate address:
+#   bitcoin-cli -signet getnewaddress
+#   (Use this address in coinbase_address above)
+#
+# Get test coins from: https://signetfaucet.com
+# (Optional, just to see transactions)
+#
+# STEP 4: Start sv2d
+# ------------------
+#   sv2-cli start --config examples/configs/bitaxe-signet.toml
+#
+# STEP 5: Verify Everything Is Running
+# -------------------------------------
+#   sv2-cli status
+#
+# Expected output:
+#   ✅ Bitcoin Core: Connected (Signet, synced)
+#   ✅ Template Provider: Running on port 38336
+#   ✅ Pool: Listening on 0.0.0.0:3333
+#   ✅ Translator: Ready for SV1 miners
+#
+# STEP 6: Configure Bitaxe
+# -------------------------
+# Access Bitaxe web interface (usually http://bitaxe.local)
+#
+# Mining Settings:
+#   - Pool URL: http://YOUR_COMPUTER_IP:3333
+#   - Port: 3333
+#   - Worker/Username: bitaxe_signet
+#   - Password: x
+#
+# Save and restart Bitaxe
+#
+# STEP 7: Watch It Mine!
+# -----------------------
+#   sv2-cli status --follow
+#
+# You should see:
+#   - Bitaxe connecting
+#   - Shares being submitted
+#   - Hashrate displayed
+#   - (Eventually) Blocks found!
+#
+# NOTE: On signet with a single Bitaxe, you might find a block every few days/weeks
+#       depending on network difficulty and your hashrate. This is normal!
+#       You're competing against the entire signet network.
+#
+# MONITORING:
+# - Check mining stats: sv2-cli stats
+# - View logs: sv2-cli logs
+# - Prometheus metrics: http://YOUR_IP:9090/metrics
+#
+# TROUBLESHOOTING:
+# - "Waiting for IBD": Bitcoin Core is still syncing, be patient
+# - "Template provider failed": Check Bitcoin Core is running with -ipcbind=unix
+# - "No shares from miner": Check Bitaxe IP address is correct
+# - "High rejection rate": Check network latency, might need different pool
+# =============================================================================

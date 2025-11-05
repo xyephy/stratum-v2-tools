@@ -57,6 +57,21 @@ pub struct ProxyConfig {
     pub load_balancing: LoadBalancingStrategy,
     pub connection_retry_interval: u64,
     pub max_retry_attempts: u32,
+    // Legacy fields for backwards compatibility
+    #[serde(default = "default_bind_port")]
+    pub bind_port: u16,
+    #[serde(default)]
+    pub upstream_address: String,
+    #[serde(default = "default_upstream_port")]
+    pub upstream_port: u16,
+}
+
+fn default_bind_port() -> u16 {
+    3333
+}
+
+fn default_upstream_port() -> u16 {
+    50124
 }
 
 /// Client mode configuration

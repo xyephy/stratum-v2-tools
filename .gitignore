@@ -50,3 +50,4 @@ stratum/
 *.sqlite
 *.db-shm
 *.db-wal
+CLAUDE.md

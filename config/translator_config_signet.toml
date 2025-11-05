@@ -1,0 +1,29 @@
+# SRI Translator Configuration for Signet Multi-Miner Setup
+# Downstream (SV1) miners connect here
+downstream_address = "0.0.0.0"
+downstream_port = 3333
+
+# Version support
+max_supported_version = 2
+min_supported_version = 2
+
+# Extranonce2 size for downstream connections (16 supports both Bitaxe and Apollo)
+downstream_extranonce2_size = 16
+
+# User identity for pool connection
+user_identity = "sv2_signet_miners"
+
+# Aggregate channels - false to allow multiple independent miners
+aggregate_channels = false
+
+# Difficulty params for signet (realistic hashrates)
+[downstream_difficulty_config]
+min_individual_miner_hashrate = 100.0  # 100 GH/s minimum
+shares_per_minute = 5.0  # Target 5 shares per minute
+enable_vardiff = true  # Enable variable difficulty for signet
+
+# Upstream pool connection
+[[upstreams]]
+address = "127.0.0.1"
+port = 34254
+authority_pubkey = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
